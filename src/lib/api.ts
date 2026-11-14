@@ -52,6 +52,8 @@ export function setStoredToken(token: string | null) {
   }
 }
 
+const API_BASE = ((import.meta.env?.VITE_API_BASE_URL as string | undefined) || '').replace(/\/+$/, '');
+
 async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
   const headers: Record<string, string> = {
@@ -62,7 +64,8 @@ async function request<T>(url: string, options: RequestInit = {}): Promise<T> {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(url, {
+  const targetUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  const res = await fetch(targetUrl, {
     ...options,
     headers,
     credentials: 'include',
