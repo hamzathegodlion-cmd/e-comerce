@@ -222,8 +222,9 @@ async function startServer() {
       return;
     }
     const clean = String(identifier).trim().toLowerCase();
-    // Allow 'admin' alias for the single manager account
-    const lookup = clean === 'admin' ? 'manager' : clean;
+    // Allow common aliases for the single manager account
+    const managerAliases = new Set(['admin', 'admin@aeterna.store', 'store manager', 'storemanager']);
+    const lookup = managerAliases.has(clean) ? 'manager' : clean;
 
     const userRow = db
       .prepare(
@@ -234,7 +235,14 @@ async function startServer() {
       | (NonNullable<AuthRequest['authUser']> & { password_hash: string })
       | undefined;
 
-    if (!userRow || !verifyPassword(String(password), userRow.password_hash)) {
+    const rawPassword = String(password);
+    const trimmedPassword = rawPassword.trim();
+    const passwordMatches =
+      !!userRow &&
+      (verifyPassword(rawPassword, userRow.password_hash) ||
+        (trimmedPassword !== rawPassword && verifyPassword(trimmedPassword, userRow.password_hash)));
+
+    if (!userRow || !passwordMatches) {
       res.status(401).json({ error: 'Invalid credentials. Please check your username and password.' });
       return;
     }
@@ -244,7 +252,7 @@ async function startServer() {
         error:
           expectedRole === 'manager'
             ? 'This portal is restricted to the Store Manager.'
-            : 'Please sign in through the Manager portal.',
+            : 'Use the Manager button in the top navigation bar to sign in as Store Manager.',
       });
       return;
     }
@@ -278,11 +286,12 @@ async function startServer() {
 
   app.post('/api/auth/manager/change-password', requireManager, (req: AuthRequest, res: Response) => {
     const { currentPassword, newPassword } = req.body ?? {};
-    if (!currentPassword || !newPassword) {
+    const nextPassword = String(newPassword ?? '').trim();
+    if (!currentPassword || !nextPassword) {
       res.status(400).json({ error: 'Current password and new password are required.' });
       return;
     }
-    if (String(newPassword).length < 6) {
+    if (nextPassword.length < 6) {
       res.status(400).json({ error: 'New password must be at least 6 characters.' });
       return;
     }
@@ -290,13 +299,18 @@ async function startServer() {
       .prepare('SELECT id, password_hash FROM users WHERE id = ?')
       .get(req.authUser!.id) as { id: number; password_hash: string };
 
-    if (!verifyPassword(String(currentPassword), row.password_hash)) {
+    const rawCurrent = String(currentPassword);
+    const currentMatches =
+      verifyPassword(rawCurrent, row.password_hash) ||
+      (rawCurrent.trim() !== rawCurrent && verifyPassword(rawCurrent.trim(), row.password_hash));
+
+    if (!currentMatches) {
       res.status(400).json({ error: 'Current password is incorrect.' });
       return;
     }
 
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
-      hashPassword(String(newPassword)),
+      hashPassword(nextPassword),
       row.id
     );
     res.json({ ok: true, message: 'Manager password updated successfully.' });

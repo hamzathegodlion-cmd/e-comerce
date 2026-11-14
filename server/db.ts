@@ -192,12 +192,19 @@ function seedInitialData() {
   }
 
   // 2. Single Manager Account (only one manager exists)
-  const managerRow = db.prepare("SELECT id FROM users WHERE role = 'manager'").get();
+  const managerRow = db
+    .prepare("SELECT id, password_hash FROM users WHERE role = 'manager'")
+    .get() as { id: number; password_hash: string } | undefined;
   if (!managerRow) {
     db.prepare(`
       INSERT INTO users (name, username, email, password_hash, role)
       VALUES (?, ?, ?, ?, 'manager')
     `).run('Store Manager', 'manager', 'manager@aeterna.store', hashPassword('Manager@2026'));
+  } else if (!managerRow.password_hash || !managerRow.password_hash.includes(':')) {
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
+      hashPassword('Manager@2026'),
+      managerRow.id
+    );
   }
 
   // Demo customer account (so Hamza can test immediately or register his own)

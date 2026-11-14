@@ -5,6 +5,7 @@ import {
   Check,
   Edit3,
   Eye,
+  EyeOff,
   FolderKanban,
   Lock,
   LogOut,
@@ -50,6 +51,8 @@ export function ManagerDashboard({
   // Login state
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showSecurityPasswords, setShowSecurityPasswords] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [loggingIn, setLoggingIn] = useState(false);
 
@@ -148,11 +151,13 @@ export function ManagerDashboard({
   const handleManagerLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
+    setActionError('');
     setLoggingIn(true);
     try {
-      const loggedIn = await api.login(identifier.trim(), password, 'manager');
+      const loggedIn = await api.login(identifier.trim(), password.trim(), 'manager');
       onAuthChange(loggedIn);
       setPassword('');
+      setShowPassword(false);
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : 'Invalid manager credentials.');
     } finally {
@@ -162,6 +167,8 @@ export function ManagerDashboard({
 
   const handleLogout = async () => {
     await api.logout().catch(() => {});
+    setLoginError('');
+    setPassword('');
     onAuthChange(null);
   };
 
@@ -195,9 +202,12 @@ export function ManagerDashboard({
                 type="text"
                 required
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="manager"
+                placeholder="Enter manager or admin"
                 className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]"
               />
             </div>
@@ -205,15 +215,25 @@ export function ManagerDashboard({
               <label className="block text-xs font-medium text-[#6E6E73] mb-1">
                 Manager Password
               </label>
-              <input
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter manager password"
+                  className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[#F5F5F7] text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-[#6E6E73] hover:text-[#1D1D1F] transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
             <button
               type="submit"
@@ -1376,13 +1396,23 @@ export function ManagerDashboard({
               onSubmit={handleChangePassword}
               className="xl:col-span-5 rounded-2xl bg-white border border-black/[0.07] p-6 space-y-4 self-start"
             >
-              <div>
-                <h2 className="font-display text-lg font-semibold text-[#1D1D1F]">
-                  Manager Security
-                </h2>
-                <p className="text-xs text-[#6E6E73]">
-                  Update the single manager password for <span className="font-mono">{user.username}</span>.
-                </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-display text-lg font-semibold text-[#1D1D1F]">
+                    Manager Security
+                  </h2>
+                  <p className="text-xs text-[#6E6E73]">
+                    Update the single manager password for <span className="font-mono">{user.username}</span>.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSecurityPasswords((v) => !v)}
+                  className="inline-flex items-center gap-1.5 text-xs font-medium text-[#6E6E73] hover:text-[#1D1D1F] shrink-0"
+                >
+                  {showSecurityPasswords ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  <span>{showSecurityPasswords ? 'Hide' : 'Show'}</span>
+                </button>
               </div>
 
               {pwMessage && (
@@ -1402,8 +1432,9 @@ export function ManagerDashboard({
                   Current Password
                 </label>
                 <input
-                  type="password"
+                  type={showSecurityPasswords ? 'text' : 'password'}
                   required
+                  autoComplete="current-password"
                   value={currentPw}
                   onChange={(e) => setCurrentPw(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]"
@@ -1415,9 +1446,10 @@ export function ManagerDashboard({
                   New Password
                 </label>
                 <input
-                  type="password"
+                  type={showSecurityPasswords ? 'text' : 'password'}
                   required
                   minLength={6}
+                  autoComplete="new-password"
                   value={newPw}
                   onChange={(e) => setNewPw(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]"
@@ -1429,9 +1461,10 @@ export function ManagerDashboard({
                   Confirm New Password
                 </label>
                 <input
-                  type="password"
+                  type={showSecurityPasswords ? 'text' : 'password'}
                   required
                   minLength={6}
+                  autoComplete="new-password"
                   value={confirmPw}
                   onChange={(e) => setConfirmPw(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F5F7] text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0071E3]"
